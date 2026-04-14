@@ -12,5 +12,10 @@ Sistema desarrollado para el control de servicios y comisiones de la empresa **S
 - Tailwind CSS
 - Firebase (Auth & Firestore)
 
----
-Desarrollado por **Isaac Esteban Segovia Mozo**
+
+
+## Docker
+
+### Construcción
+```bash
+docker build -t suset-estylos-control .
