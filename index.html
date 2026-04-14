@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suset.estylos E.I.R.L - Control de Acceso</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div id="loginSection" class="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl">
+        <h2 class="text-3xl font-bold mb-6 text-center text-pink-600 font-serif italic">Suset.estylos</h2>
+        <p class="text-center text-gray-500 mb-6">Control de Acceso Privado</p>
+        <div class="space-y-4">
+            <input type="email" id="email" placeholder="Correo (merly@susetestylos.com)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 outline-none">
+            <input type="password" id="pass" placeholder="Contraseña" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 outline-none">
+            <button onclick="login()" class="w-full bg-pink-600 text-white p-3 rounded-lg font-bold hover:bg-pink-700 transition">Entrar al Sistema</button>
+        </div>
+    </div>
+
+    <div id="mainSection" class="hidden max-w-2xl w-full bg-white p-8 rounded-2xl shadow-xl">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-pink-600">Panel de Control</h2>
+            <button onclick="logout()" class="text-xs bg-gray-200 px-3 py-1 rounded text-gray-600 hover:bg-red-100 hover:text-red-600">Cerrar Sesión</button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-3">
+                <h3 class="font-bold text-gray-700 border-b pb-2">Registrar Servicio</h3>
+                <input type="text" id="cliente" placeholder="Nombre del Cliente" class="w-full p-2 border rounded">
+                <input type="text" id="servicio" placeholder="Servicio (Ej: Balayage)" class="w-full p-2 border rounded">
+                <div class="flex gap-2">
+                    <input type="number" id="monto" placeholder="Total S/." class="w-1/2 p-2 border rounded">
+                    <input type="number" id="comision" placeholder="Ganancia S/." class="w-1/2 p-2 border rounded">
+                </div>
+                <button onclick="guardarServicio()" class="w-full bg-pink-500 text-white p-2 rounded hover:bg-pink-600 font-bold">Guardar en Cloud</button>
+            </div>
+
+            <div>
+                <h3 class="font-bold text-gray-700 border-b pb-2 mb-3">Historial Reciente</h3>
+                <div id="listaServicios" class="space-y-2 h-64 overflow-y-auto pr-2 text-sm">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQoNoqmeB9j8NBjPv5--DgePaf-ePh3TQ",
+            authDomain: "suset-estylos-sistema.firebaseapp.com",
+            projectId: "suset-estylos-sistema",
+            storageBucket: "suset-estylos-sistema.firebasestorage.app",
+            messagingSenderId: "282564660666",
+            appId: "1:282564660666:web:3afab936297c75116ca183"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- LÓGICA DE LOGIN ---
+        window.login = async () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('pass').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (error) {
+                alert("Acceso Denegado: Verifica correo o contraseña");
+            }
+        };
+
+        window.logout = () => signOut(auth);
+
+        // --- OBSERVAR SI EL USUARIO ESTÁ LOGUEADO ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('mainSection').classList.remove('hidden');
+                cargarDatos();
+            } else {
+                document.getElementById('loginSection').classList.remove('hidden');
+                document.getElementById('mainSection').classList.add('hidden');
+            }
+        });
+
+        // --- LÓGICA DE FIRESTORE ---
+        window.guardarServicio = async () => {
+            const cliente = document.getElementById('cliente').value;
+            const servicio = document.getElementById('servicio').value;
+            const monto = document.getElementById('monto').value;
+            const comision = document.getElementById('comision').value;
+
+            if(cliente && servicio) {
+                try {
+                    await addDoc(collection(db, "servicios"), {
+                        cliente: cliente,
+                        servicio: servicio,
+                        monto: Number(monto),
+                        comision: Number(comision),
+                        fecha: new Date().toLocaleString(),
+                        usuarioID: auth.currentUser.email
+                    });
+                    document.getElementById('cliente').value = '';
+                    document.getElementById('servicio').value = '';
+                    document.getElementById('monto').value = '';
+                    document.getElementById('comision').value = '';
+                } catch (e) { alert("Error al guardar"); }
+            }
+        };
+
+        function cargarDatos() {
+            const q = query(collection(db, "servicios"), orderBy("fecha", "desc"));
+            onSnapshot(q, (snapshot) => {
+                const lista = document.getElementById('listaServicios');
+                lista.innerHTML = '';
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    lista.innerHTML += `
+                        <div class="p-2 bg-gray-50 border-l-4 border-pink-400 rounded shadow-sm mb-2">
+                            <p class="font-bold text-pink-700">${data.cliente}</p>
+                            <p class="text-xs">${data.servicio}</p>
+                            <p class="text-xs font-bold text-green-600">Ganancia: S/. ${data.comision}</p>
+                        </div>
+                    `;
+                });
+            });
+        }
+    </script>
+</body>
+</html>
